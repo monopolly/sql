@@ -1,10 +1,11 @@
 package sql
 
 import (
+	"errors"
+
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx"
-	"github.com/monopolly/errors"
 )
 
 type Conn struct {
@@ -16,22 +17,21 @@ func (a *Conn) Pool() *pgx.ConnPool {
 }
 
 //will added limit 1 to the end
-func (a *Conn) Query(sql string, arg ...interface{}) (resp [][]interface{}, err errors.E) {
+func (a *Conn) Query(sql string, arg ...interface{}) (resp [][]interface{}, err error) {
 	r, er := a.pool.Query(sql, arg...)
 	if er != nil {
 		b, _ := er.(*pgconn.PgError)
 		if b != nil {
 			switch b.Code {
 			case pgerrcode.UniqueViolation:
-				err = errors.Exist(er)
+				err = errors.New("exist")
 			case pgerrcode.NoDataFound:
-				err = errors.NotFound()
+				err = errors.New("notfound")
 			default:
-				err = errors.Database(er)
-				err.Set("sql", b.Code)
+				err = er
 			}
 		} else {
-			err = errors.Database(er)
+			err = er
 		}
 		return
 	}
@@ -50,10 +50,10 @@ func (a *Conn) Query(sql string, arg ...interface{}) (resp [][]interface{}, err 
 
 //response as json: select only!
 //example: select * from users = [][]byte
-func (a *Conn) QueryJson(sql string, arg ...interface{}) (resp [][]byte, err errors.E) {
+func (a *Conn) QueryJson(sql string, arg ...interface{}) (resp [][]byte, err error) {
 	r, er := a.pool.Query(JsonResult(sql), arg...)
 	if er != nil {
-		err = errors.Database(er)
+		err = errors.New("database")
 		return
 	}
 
@@ -70,31 +70,31 @@ func (a *Conn) QueryJson(sql string, arg ...interface{}) (resp [][]byte, err err
 }
 
 //will added limit 1 to the end
-func (a *Conn) Row(sql string, arg ...interface{}) (resp []interface{}, err errors.E) {
+func (a *Conn) Row(sql string, arg ...interface{}) (resp []interface{}, err error) {
 	r, er := a.pool.Query(sql+" limit 1", arg...)
 	if er != nil {
-		err = errors.Database(er)
+		err = errors.New("database")
 		return
 	}
 	defer r.Close()
 	if !r.Next() {
-		err = errors.NotFound()
+		err = errors.New("notfound")
 		return
 	}
 
 	resp, er = r.Values()
 	if er != nil {
-		err = errors.Database(er)
+		err = errors.New("database")
 		return
 	}
 
 	return
 }
 
-func (a *Conn) Exist(sql string, arg ...interface{}) (resp bool, err errors.E) {
+func (a *Conn) Exist(sql string, arg ...interface{}) (resp bool, err error) {
 	r, er := a.pool.Query(sql+" limit 1", arg...)
 	if er != nil {
-		err = errors.Database(er)
+		err = errors.New("database")
 		return
 	}
 	defer r.Close()
@@ -102,10 +102,10 @@ func (a *Conn) Exist(sql string, arg ...interface{}) (resp bool, err errors.E) {
 }
 
 //will added limit 1 to the end
-func (a *Conn) RowJson(sql string, arg ...interface{}) (resp []byte, err errors.E) {
+func (a *Conn) RowJson(sql string, arg ...interface{}) (resp []byte, err error) {
 	r, er := a.pool.Query(JsonResult(sql+" limit 1"), arg...)
 	if er != nil {
-		err = errors.Database(er)
+		err = errors.New("database")
 		return
 	}
 	defer r.Close()
@@ -113,26 +113,26 @@ func (a *Conn) RowJson(sql string, arg ...interface{}) (resp []byte, err errors.
 	if r.Next() {
 		r.Scan(&resp)
 	} else {
-		err = errors.NotFound()
+		err = errors.New("notfound")
 		return
 	}
 	return
 }
 
-func (a *Conn) Exec(sql string, arg ...interface{}) (err errors.E) {
+func (a *Conn) Exec(sql string, arg ...interface{}) (err error) {
 	_, er := a.pool.Exec(sql, arg...)
 	if er != nil {
 		b, _ := er.(*pgconn.PgError)
 		if b != nil {
 			switch b.Code {
 			case pgerrcode.UniqueViolation:
-				err = errors.Exist(er)
+				err = errors.New("exist")
 			default:
-				err = errors.Database(er)
-				err.Set("sql", b.Code)
+				err = errors.New("database")
+
 			}
 		} else {
-			err = errors.Database(er)
+			err = errors.New("database")
 		}
 	}
 	return

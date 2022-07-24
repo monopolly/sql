@@ -11,20 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Nil(i interface{}) {
-	if i != nil {
-		fmt.Println("FAIL:", i)
-		return
-	}
-}
-
-func NotNil(i interface{}) {
-	if i == nil {
-		fmt.Println("FAIL:", i)
-		return
-	}
-}
-
 func TestConn(ggggg *testing.T) {
 	function, _, _, _ := runtime.Caller(0)
 	fn := runtime.FuncForPC(function).Name()

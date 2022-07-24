@@ -1,8 +1,9 @@
 package sql
 
 import (
+	"errors"
+
 	"github.com/jackc/pgx"
-	"github.com/monopolly/errors"
 	"github.com/monopolly/weighted"
 )
 
@@ -22,7 +23,7 @@ func New() (a *Pool) {
 }
 
 //Также добавляет и slave
-func (a *Pool) Master(host, dbname, user, pass string, port int, maxconnect int, weight int) (err errors.E) {
+func (a *Pool) Master(host, dbname, user, pass string, port int, maxconnect int, weight int) (err error) {
 
 	// init
 	var conf pgx.ConnPoolConfig
@@ -34,9 +35,8 @@ func (a *Pool) Master(host, dbname, user, pass string, port int, maxconnect int,
 	conf.MaxConnections = maxconnect
 
 	// conn
-	p, er := pgx.NewConnPool(conf)
-	if er != nil {
-		err = errors.Connection(er.Error())
+	p, err := pgx.NewConnPool(conf)
+	if err != nil {
 		return
 	}
 
@@ -47,7 +47,7 @@ func (a *Pool) Master(host, dbname, user, pass string, port int, maxconnect int,
 }
 
 //Также добавляет и slave
-func (a *Pool) Slave(host, dbname, user, pass string, port int, maxconnect int, weight int) (err errors.E) {
+func (a *Pool) Slave(host, dbname, user, pass string, port int, maxconnect int, weight int) (err error) {
 
 	// init
 	var conf pgx.ConnPoolConfig
@@ -59,9 +59,8 @@ func (a *Pool) Slave(host, dbname, user, pass string, port int, maxconnect int, 
 	conf.MaxConnections = maxconnect
 
 	// conn
-	p, er := pgx.NewConnPool(conf)
-	if er != nil {
-		err = errors.Connection(er.Error())
+	p, err := pgx.NewConnPool(conf)
+	if err != nil {
 		return
 	}
 
@@ -71,22 +70,22 @@ func (a *Pool) Slave(host, dbname, user, pass string, port int, maxconnect int, 
 }
 
 //нужно делать c.Release() после операций
-func (a *Pool) Write() (c *Conn, err errors.E) {
+func (a *Pool) Write() (c *Conn, err error) {
 	//если readonly значит что мы закрываем все коннекты
 	if a.readonly {
-		err = errors.Try("readonly")
+		err = errors.New("readonly")
 		return
 	}
 	pool := a.write.Next()
 	if pool == nil {
-		err = errors.Connection()
+		err = errors.New("connection")
 		return
 	}
 
 	c = new(Conn)
 	p, ok := pool.(*pgx.ConnPool)
 	if !ok {
-		err = errors.Connection()
+		err = errors.New("connection")
 		return
 	}
 	c.pool = p
@@ -94,21 +93,21 @@ func (a *Pool) Write() (c *Conn, err errors.E) {
 }
 
 //нужно делать c.Release() после операций
-func (a *Pool) Read() (c *Conn, err errors.E) {
+func (a *Pool) Read() (c *Conn, err error) {
 	//если readonly значит что мы закрываем все коннекты
 	if a.readonly {
-		err = errors.Try("readonly")
+		err = errors.New("readonly")
 		return
 	}
 	pool := a.read.Next()
 	if pool == nil {
-		err = errors.Connection()
+		err = errors.New("connection")
 		return
 	}
 	c = new(Conn)
 	p, ok := pool.(*pgx.ConnPool)
 	if !ok {
-		err = errors.Connection()
+		err = errors.New("connection")
 		return
 	}
 	c.pool = p
