@@ -42,6 +42,13 @@ func TestConnection(ggggg *testing.T) {
 		panic(er)
 	}
 
+	er = conn.Ping()
+	if er != nil {
+		panic(er)
+	}
+
+	fmt.Println("connection ok")
+
 	er = conn.CreateTable(table, map[string]string{"id": "bigserial", "title": "text", "bools": "boolean", "created": "bigint", "meta": "jsonb default '{}'::jsonb"})
 	if er != nil {
 		panic(er)
