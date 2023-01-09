@@ -1,141 +1,46 @@
 package sql
 
 import (
-	"errors"
+	"context"
+	"fmt"
 
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/monopolly/errors"
 )
 
 type Conn struct {
-	pool *pgx.ConnPool
+	Pool *pgxpool.Pool
 }
 
-func (a *Conn) Pool() *pgx.ConnPool {
-	return a.pool
+func New(host, db, user, pass string, port ...int) (res *Conn, err errors.E) {
+	ports := 5432
+	if port != nil {
+		ports = port[0]
+	}
+	return NewString(fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, pass, host, ports, db))
 }
 
-//will added limit 1 to the end
-func (a *Conn) Query(sql string, arg ...interface{}) (resp [][]interface{}, err error) {
-	r, er := a.pool.Query(sql, arg...)
+func NewLocal(user, pass string, db ...string) (res *Conn, err errors.E) {
+	switch db == nil {
+	case true:
+		return NewString(fmt.Sprintf("postgres://%s:%s@localhost:5432", user, pass))
+	default:
+		return NewString(fmt.Sprintf("postgres://%s:%s@localhost:5432/%s", user, pass, db[0]))
+	}
+}
+
+// postgres://user:pass@localhost:5432/dbname
+// postgres://user:pass@localhost:5432/dbname?application_name=pgxtest&search_path=myschema&connect_timeout=5
+func NewString(connstring string) (res *Conn, err errors.E) {
+
+	// conn
+	p, er := pgxpool.New(context.Background(), connstring)
 	if er != nil {
-		b, _ := er.(*pgconn.PgError)
-		if b != nil {
-			switch b.Code {
-			case pgerrcode.UniqueViolation:
-				err = errors.New("exist")
-			case pgerrcode.NoDataFound:
-				err = errors.New("notfound")
-			default:
-				err = er
-			}
-		} else {
-			err = er
-		}
+		err = errors.Connection(er)
 		return
 	}
 
-	for r.Next() {
-		v, err := r.Values()
-		if err != nil {
-			continue
-		}
-		resp = append(resp, v)
-	}
-
-	r.Close()
+	res = new(Conn)
+	res.Pool = p
 	return
 }
-
-//response as json: select only!
-//example: select * from users = [][]byte
-func (a *Conn) QueryJson(sql string, arg ...interface{}) (resp [][]byte, err error) {
-	r, er := a.pool.Query(JsonResult(sql), arg...)
-	if er != nil {
-		err = errors.New("database")
-		return
-	}
-
-	for r.Next() {
-		raw, _ := r.Values()
-		if len(raw) == 0 {
-			continue
-		}
-		//resp = append(resp, raw[0])
-	}
-
-	r.Close()
-	return
-}
-
-//will added limit 1 to the end
-func (a *Conn) Row(sql string, arg ...interface{}) (resp []interface{}, err error) {
-	r, er := a.pool.Query(sql+" limit 1", arg...)
-	if er != nil {
-		err = errors.New("database")
-		return
-	}
-	defer r.Close()
-	if !r.Next() {
-		err = errors.New("notfound")
-		return
-	}
-
-	resp, er = r.Values()
-	if er != nil {
-		err = errors.New("database")
-		return
-	}
-
-	return
-}
-
-func (a *Conn) Exist(sql string, arg ...interface{}) (resp bool, err error) {
-	r, er := a.pool.Query(sql+" limit 1", arg...)
-	if er != nil {
-		err = errors.New("database")
-		return
-	}
-	defer r.Close()
-	return r.Next(), nil
-}
-
-//will added limit 1 to the end
-func (a *Conn) RowJson(sql string, arg ...interface{}) (resp []byte, err error) {
-	r, er := a.pool.Query(JsonResult(sql+" limit 1"), arg...)
-	if er != nil {
-		err = errors.New("database")
-		return
-	}
-	defer r.Close()
-
-	if r.Next() {
-		r.Scan(&resp)
-	} else {
-		err = errors.New("notfound")
-		return
-	}
-	return
-}
-
-func (a *Conn) Exec(sql string, arg ...interface{}) (err error) {
-	_, er := a.pool.Exec(sql, arg...)
-	if er != nil {
-		b, _ := er.(*pgconn.PgError)
-		if b != nil {
-			switch b.Code {
-			case pgerrcode.UniqueViolation:
-				err = errors.New("exist")
-			default:
-				err = errors.New("database")
-
-			}
-		} else {
-			err = errors.New("database")
-		}
-	}
-	return
-}
-
-/* update events set usr = usr || '{"name":"James Wood"}'::jsonb where uid = 1; */
