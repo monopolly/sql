@@ -12,6 +12,11 @@ type Conn struct {
 	Pool *pgxpool.Pool
 }
 
+// default 4
+func (a *Conn) SetMaxXConnections(max int) {
+	a.Pool.Config().MaxConns = int32(max)
+}
+
 func New(host, db, user, pass string, port ...int) (res *Conn, err errors.E) {
 	ports := 5432
 	if port != nil {
