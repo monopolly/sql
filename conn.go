@@ -3,6 +3,7 @@ package sql
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/monopolly/errors"
@@ -13,7 +14,7 @@ type Conn struct {
 }
 
 // default 4
-func (a *Conn) SetMaxXConnections(max int) {
+func (a *Conn) SetMaxConnections(max int) {
 	a.Pool.Config().MaxConns = int32(max)
 }
 
@@ -47,5 +48,6 @@ func NewString(connstring string) (res *Conn, err errors.E) {
 
 	res = new(Conn)
 	res.Pool = p
+	res.Pool.Config().HealthCheckPeriod = time.Second * 30
 	return
 }

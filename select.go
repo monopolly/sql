@@ -2,6 +2,7 @@ package sql
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/monopolly/errors"
 
@@ -59,6 +60,28 @@ func (a *Conn) QueryJson(sql string, arg ...any) (resp [][]byte, err errors.E) {
 		}
 
 		resp = append(resp, raw[0].([]byte))
+	}
+
+	r.Close()
+	return
+}
+
+// all records from table in json
+func (a *Conn) All(table string) (json [][]byte, err errors.E) {
+	q := fmt.Sprintf("select * from %s", table)
+	r, er := a.Pool.Query(context.Background(), JsonResult(q))
+	if er != nil {
+		err = errors.Database(er)
+		return
+	}
+
+	for r.Next() {
+		raw, _ := r.Values()
+		if len(raw) == 0 {
+			continue
+		}
+
+		json = append(json, []byte(fmt.Sprint(raw[0])))
 	}
 
 	r.Close()
