@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/monopolly/jsons"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -81,6 +82,14 @@ func TestConnection(ggggg *testing.T) {
 	}
 
 	fmt.Println("has", has)
+
+	conn.Insert(table, map[string]any{"title": "second", "created": time.Now().Unix()})
+
+	jj, er := conn.All(table)
+	if er != nil {
+		panic(er)
+	}
+	fmt.Println(string(jsons.Join(jj)))
 
 	r, er := conn.RowJson("select * from " + table)
 	if er != nil {

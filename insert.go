@@ -9,8 +9,8 @@ import (
 	"github.com/monopolly/errors"
 )
 
-// insert
-func (a *Conn) Insert(table string, keys map[string]any, noConflictFields ...string) (id any, err errors.E) {
+// insert, ignore = no conflicts on insert
+func (a *Conn) Insert(table string, keys map[string]any, ignore ...bool) (id any, err errors.E) {
 	/* insert into channels (sid,lang,category,sub,title) values ('en.startups.preseed', 'en','startups','preseed','Pre-Seed'); */
 	lens := len(keys)
 	klist := make([]string, lens)
@@ -23,10 +23,11 @@ func (a *Conn) Insert(table string, keys map[string]any, noConflictFields ...str
 		qlist[c] = fmt.Sprintf("$%d", c+1)
 		c++
 	}
-	q := fmt.Sprintf("insert into %s (%s) values (%s) returning id", table, strings.Join(klist, ","), strings.Join(qlist, ","))
-	if noConflictFields != nil {
-		q = q + fmt.Sprintf(" on conflict (%s) do nothing", strings.Join(noConflictFields, ","))
+	q := fmt.Sprintf("insert into %s (%s) values (%s)", table, strings.Join(klist, ","), strings.Join(qlist, ","))
+	if ignore != nil {
+		q = q + " on conflict do nothing"
 	}
+	q += " returning id"
 	pp := a.Pool.QueryRow(context.Background(), q, vlist...)
 	er := pp.Scan(&id)
 	if er != nil {

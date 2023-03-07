@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -54,38 +55,57 @@ func (a *Conn) QueryJson(sql string, arg ...any) (resp [][]byte, err errors.E) {
 	}
 
 	for r.Next() {
-		raw, _ := r.Values()
+		raw := r.RawValues()
 		if len(raw) == 0 {
 			continue
 		}
-
-		resp = append(resp, raw[0].([]byte))
+		x := raw[0]
+		resp = append(resp, x)
 	}
 
-	r.Close()
+	return
+}
+
+// response as json: select only!
+// example: select * from users = [][]byte
+func (a *Conn) QueryJsonArray(sql string, arg ...any) (resp []byte, err errors.E) {
+	r, er := a.Pool.Query(context.Background(), JsonResult(sql), arg...)
+	if er != nil {
+		err = errors.Database(er)
+		return
+	}
+	defer r.Close()
+
+	var w bytes.Buffer
+	w.WriteString("[")
+	var c int
+	for r.Next() {
+		raw := r.RawValues()
+		if len(raw) == 0 {
+			continue
+		}
+		w.Write(raw[0])
+		w.WriteString(",")
+		c++
+	}
+	if c == 0 {
+		return
+	}
+	resp = w.Bytes()
+	resp[len(resp)-1] = ']'
 	return
 }
 
 // all records from table in json
 func (a *Conn) All(table string) (json [][]byte, err errors.E) {
 	q := fmt.Sprintf("select * from %s", table)
-	r, er := a.Pool.Query(context.Background(), JsonResult(q))
-	if er != nil {
-		err = errors.Database(er)
-		return
-	}
+	return a.QueryJson(q)
+}
 
-	for r.Next() {
-		raw, _ := r.Values()
-		if len(raw) == 0 {
-			continue
-		}
-
-		json = append(json, []byte(fmt.Sprint(raw[0])))
-	}
-
-	r.Close()
-	return
+// all records from table in json
+func (a *Conn) AllArray(table string) (res []byte, err errors.E) {
+	q := fmt.Sprintf("select * from %s", table)
+	return a.QueryJsonArray(q)
 }
 
 // will added limit 1 to the end
