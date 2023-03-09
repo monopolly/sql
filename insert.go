@@ -38,3 +38,18 @@ func (a *Conn) Insert(table string, keys map[string]any, ignore ...bool) (id any
 	}
 	return
 }
+
+// insert, ignore = no conflicts on insert
+func (a *Conn) InsertTuple(sql string, v ...any) (id any, err errors.E) {
+	/* insert into channels (sid,lang,category,sub,title) values ('en.startups.preseed', 'en','startups','preseed','Pre-Seed'); */
+	sql += " returning id"
+	pp := a.Pool.QueryRow(context.Background(), sql, v...)
+	er := pp.Scan(&id)
+	if er != nil {
+		if er == pgx.ErrNoRows {
+			return
+		}
+		err = errors.Database(er)
+	}
+	return
+}
